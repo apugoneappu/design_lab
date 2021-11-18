@@ -2,61 +2,26 @@
 # problem using naive approach.
 from sys import maxsize
 from itertools import permutations, product
+import asyncio
 
-# implementation of traveling Salesman Problem
-'''
-def travellingSalesmanProblem(graph, s, wait):
-
-	assert len(graph) == len(wait), "Invalid graph or wait times"
-	assert len(graph[0]) == len(wait), "Invalid graph or wait times"
-
-	# store all vertex apart from source vertex
-	vertex = []
-	for i in range(V):
-		if i != s:
-			vertex.append(i)
-
-	# store minimum weight Hamiltonian Cycle
-	min_path = maxsize
-	next_permutation=permutations(vertex)
-
-	best_perm = None
-	for i in next_permutation:
-
-		# store current Path weight(cost)
-		current_pathweight = 0
-
-		# compute current path weight
-		k = s
-		for j in i:
-			current_pathweight += graph[k][j] + max(0, wait[j] - (current_pathweight + graph[k][j]))
-			k = j
-		current_pathweight += graph[k][s]
-
-		# update minimum
-		if (current_pathweight < min_path):
-			min_path = current_pathweight
-			best_perm = i
-		
-	return min_path, [s, *best_perm, s]
-'''
-
+def in_range(range1, range2):
+	return range1[0] in range2 and range1[-1] in range2
 
 # Driver Code
 if __name__ == "__main__":
 
 	services_locations = {
-		0: [0, 1, 3],
-		1: [1, 2],
-		2: [0, 3],
-		3: [1, 3]
+		0: [0],
+		1: [1],
+		2: [2],
+		3: [3]
 	}
 
 	location_service_times = {
-		0: [0, maxsize, 2, maxsize],
-		1: [0, 1, maxsize, 1],
-		0: [maxsize, 1, maxsize, maxsize],
-		0: [1, maxsize, 1, 1],
+		0: [0, maxsize, maxsize, maxsize],
+		1: [maxsize, 5, maxsize, maxsize],
+		2: [maxsize, maxsize, 10, maxsize],
+		3: [maxsize, maxsize, maxsize, 5],
 	}
 	
 	book_times = {
@@ -68,27 +33,27 @@ if __name__ == "__main__":
 
 	closing_times = {
 		0: [],
-		1: [],
+		1: [range(10, 90)],
 		2: [],
 		3: []
 	}
 
 	# matrix representation of graph
-	graph = [[0, 10, 15, 20],
-			[10, 0, 35, 25],
-			[15, 35, 0, 30],
-			[20, 25, 30, 0]]
-
-	service_time = [0, 20, 5, 5]
+	graph = [[0, 11, 5, 10],
+			[11, 0, 10, 15],
+			[5, 10, 0, 11],
+			[10, 15, 11, 0]]
 
 	requests = [
-		(0, [0, 2, 1]),
+		(0, [1, 2, 3]),
 		(2, [0, 1, 3]),
 		(3, [0, 1, 2, 3]),
 		(2, [1, 3])
 	]
 	V = 4
 	# print(travellingSalesmanProblem(graph, s, wait))
+
+	wait_times = [0, 10, 100, 10]
 
 	for request in requests:
 		
@@ -126,8 +91,9 @@ if __name__ == "__main__":
 
 		# services_perm and all_locations are in sync of index
 
-		optimal_path = None
-		optimal_path_weight = maxsize
+		best_path = None
+		best_service_order = None
+		best_time = maxsize
 				
 		for idx in range(len(all_locations)):
 			
@@ -149,46 +115,59 @@ if __name__ == "__main__":
 					else:
 						travel_time = graph[current_path[cur_idx - 1]][current_path[cur_idx]]
 
-					#TODO: add waiting time
-					current_time += \
-						travel_time + \
-						service_time[ser] 
-				
+					current_time += travel_time
+
+					wait_time_due_to_closed = sum([max(0, closing_time[-1]+1-current_time) for closing_time in closing_times[loc] if current_time in closing_time])
+
+					current_time += wait_time_due_to_closed
+
+					wait_time_due_to_booked = sum([max(0, book_time[-1]+1-current_time) for book_time in book_times[loc] if current_time in book_time])
+
+					current_time += wait_time_due_to_booked
+
+					current_time +=  location_service_times[loc][ser]
+
 				# Time to return to home after last node
 				current_time += graph[current_path[-1]][s]
 
+				if current_time < best_time:
+					best_path = current_path
+					best_time = current_time
+					best_service_order = service_order
 					
 		
-		break
+		# Determined the best path
+		print('Locations order: ', best_path)
+		print('Service order: ', best_service_order)
+		print('Best time: ',  best_time)
 
-
-
-		# store all vertex apart from source vertex
-		vertex = []
-		for i in range(V):
-			if i != s:
-				vertex.append(i)
-
-		# store minimum weight Hamiltonian Cycle
-		min_path = maxsize
-		next_permutation=permutations(vertex)
-
-		best_perm = None
-		for i in next_permutation:
-
-			# store current Path weight(cost)
-			current_pathweight = 0
-
-			# compute current path weight
-			k = s
-			for j in i:
-				current_pathweight += graph[k][j] + max(0, wait[j] - (current_pathweight + graph[k][j]))
-				k = j
-			current_pathweight += graph[k][s]
-
-			# update minimum
-			if (current_pathweight < min_path):
-				min_path = current_pathweight
-				best_perm = i
+		# Iterate over the path again
+		simulated_time = 0
+		for idx, (ser, loc) in enumerate(zip(best_service_order, best_path)):
 			
+			if idx == 0:
+				travel_time = graph[s][best_path[0]]
+			else:
+				travel_time = graph[best_path[idx - 1]][best_path[idx]]
 
+			simulated_time += travel_time
+
+			wait_time_due_to_closed = sum([max(0, closing_time[-1]+1-simulated_time) for closing_time in closing_times[loc] if simulated_time in closing_time])
+
+			simulated_time += wait_time_due_to_closed
+
+			wait_time_due_to_booked = sum([max(0, book_time[-1]+1-simulated_time) for book_time in book_times[loc] if simulated_time in book_time])
+
+			simulated_time += wait_time_due_to_booked
+
+			simulated_time += location_service_times[loc][ser]
+
+			book_times[loc].append(range(simulated_time - location_service_times[loc][ser], simulated_time))
+			book_times[loc] = sorted(book_times[loc], key = lambda x: x[0])
+			print(book_times)
+
+			# Debug
+			# print(loc, travel_time, wait_time_due_to_closed, wait_time_due_to_booked, location_service_times[loc][ser])
+		
+
+		break
