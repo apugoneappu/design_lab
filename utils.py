@@ -51,28 +51,48 @@ def get_waiting_time(job_start, job_duration, unavailable_times):
 
 	return waiting_time
 
+def init(liste, init_list):
+
+	min_outer = min(len(liste), len(init_list))
+
+	for idx in range(min_outer):
+
+		inner = len(init_list[idx])
+		liste[idx][:inner] = init_list[idx]
+
+	
 if __name__ == '__main__':
 
-	ret = has_intersection([8, 9], [10, 15])
-	print(ret)
+	# ret = has_intersection([8, 9], [10, 15])
+	# print(ret)
 
-	ret = has_intersection([8, 10], [10, 15])
-	print(ret)
+	# ret = has_intersection([8, 10], [10, 15])
+	# print(ret)
 
-	ret = has_intersection([8, 12], [10, 15])
-	print(ret)
+	# ret = has_intersection([8, 12], [10, 15])
+	# print(ret)
 
-	ret = has_intersection([12, 13], [10, 15])
-	print(ret)
+	# ret = has_intersection([12, 13], [10, 15])
+	# print(ret)
 
-	ret = has_intersection([15, 16], [10, 15])
-	print(ret)
+	# ret = has_intersection([15, 16], [10, 15])
+	# print(ret)
 
-	ret = has_intersection([17, 18], [10, 15])
-	print(ret)
+	# ret = has_intersection([17, 18], [10, 15])
+	# print(ret)
 
-	ret = has_intersection([15, 19], [17, 22])
-	print(ret)
+	# ret = has_intersection([15, 19], [17, 22])
+	# print(ret)
 
-	ret = get_waiting_time(9, 4, [range(10, 15), range(17, 22), range(26, 35)])
-	print(ret)
+	# ret = get_waiting_time(9, 4, [range(10, 15), range(17, 22), range(26, 35)])
+	# print(ret)
+
+	weights = [[0] * 4 for _ in range(4)]
+	weights_init = [[0, 11, 5, 10],
+				[11, 0, 10, 15],
+				[5, 10, 0, 11],
+				[10, 15, 11, 0]]
+	
+	print(weights)
+	init(weights, weights_init)
+	print(weights)
