@@ -9,7 +9,6 @@ from utils import get_waiting_time, has_intersection
 class Salesman:
 
 	def __init__(self, num_locations, num_services, services_locations, location_service_times, closing_times, graph):
-			clock = 0
 
 			self.num_locations = num_locations
 			self.num_services = num_services
@@ -59,41 +58,41 @@ class Salesman:
 	
 	def handle_request(self, requests):
 
-		for request in requests:
-			self.requests.append([*request, False])
-		
-		result = self.plan()
+		self.requests = requests
 
-		return result
-
-	def handle_booked(self):
+	def handle_booked(self, debug=False):
 
 		for loc in self.book_times.keys():
 
 			new_times = [book_time for book_time in self.book_times[loc] if self.clock <= (book_time[-1]+1)]
 
 			if (len(new_times) != len(self.book_times[loc])):
-				print('Old bookings: ', self.book_times[loc])
-				print('New bookings: ', new_times)
+
+				if debug:
+					print('Old bookings: ', self.book_times[loc])
+					print('New bookings: ', new_times)
 				self.book_times[loc] = new_times
 			
-	def plan(self):
+	def plan(self, debug=False):
 
 		# Handle new requests
 		results = []
-		for idx, request in enumerate(self.requests):
+		requests_fulfilled = []
+		for req_idx, request in enumerate(self.requests):
+
+			start_time = request[0]
 			
 			#starting node
 			# s = 2
-			s = request[0] 
+			s = request[1] 
 
 			#list of service to be availed
 			# [0, 1]
-			services = request[1] 
+			services = request[2] 
 
-			is_done = request[2]
+			is_done = request[3]
 
-			if is_done:
+			if is_done or self.clock != start_time:
 				continue
 				
 			# list of locations for each service (list of lists)
@@ -134,7 +133,7 @@ class Salesman:
 
 					# current_path = (0, 1)
 
-					current_time = 0
+					current_time = start_time
 
 					for cur_idx, (ser, loc) in enumerate(zip(service_order, current_path)):
 						
@@ -157,21 +156,24 @@ class Salesman:
 					# Time to return to home after last node
 					current_time += self.graph[current_path[-1]][s]
 
-					if current_time < best_time:
+					time_taken = current_time - start_time
+
+					if time_taken < best_time:
 						best_path = current_path
-						best_time = current_time
+						best_time = time_taken
 						best_service_order = service_order
 						
 			
 			# Determined the best path
-			print('Locations order: ', best_path)
-			print('Service order: ', best_service_order)
-			print('Best time: ',  best_time)
+			if debug:
+				print('Locations order: ', best_path)
+				print('Service order: ', best_service_order)
+				print('Best time: ',  best_time)
 
 			result = []
 
 			# Iterate over the path again
-			simulated_time = 0
+			simulated_time = start_time
 			for idx, (ser, loc) in enumerate(zip(best_service_order, best_path)):
 				
 				if idx == 0:
@@ -180,6 +182,7 @@ class Salesman:
 					travel_time = self.graph[best_path[idx - 1]][best_path[idx]]
 
 				simulated_time += travel_time
+				service_reach_time = simulated_time
 
 				wait_time = get_waiting_time(simulated_time, self.location_service_times[loc][ser], self.closing_times[loc] + self.book_times[loc])
 
@@ -190,23 +193,43 @@ class Salesman:
 				self.book_times[loc].append(range(simulated_time - self.location_service_times[loc][ser], simulated_time))
 				self.book_times[loc] = sorted(self.book_times[loc], key = lambda x: x[0])
 
-				result.append((ser, loc, simulated_time - self.location_service_times[loc][ser], wait_time, simulated_time))
+				result.append((ser, loc, travel_time, service_reach_time, wait_time, self.location_service_times[loc][ser], simulated_time))
 
 				# Debug
-				print(loc, travel_time, wait_time, self.location_service_times[loc][ser], simulated_time)
+				# if debug:
+					# print(loc, travel_time, wait_time, self.location_service_times[loc][ser], simulated_time)
 			
 			# Update the request
-			self.requests[idx][-1] = True
+			request[3] = True
 			results.append(result)
-			
-		return results
+			requests_fulfilled.append(req_idx)
 
-	def tick(self):
+		if debug:
+			print(results)	
+		return results, requests_fulfilled
 
-		print('Clock: ', self.clock)
+	def tick(self, debug=False):
+
+		if debug:
+			print('Clock: ', self.clock)
 		
+		ret, reqs_fulfilled = self.plan()
 		self.handle_booked()
 		self.clock += 1
+
+		return ret, reqs_fulfilled
+	
+	def is_left(self, debug=False):
+
+		for v in self.book_times.values():
+			if v:
+				return True
+		
+		for req in self.requests:
+			if not req[-1]:
+				return True
+		
+		return False
 	
 if __name__ == '__main__':
 
@@ -230,10 +253,10 @@ if __name__ == '__main__':
 	
 
 	requests = [
-		[0, [1, 2, 3], False],
-		[2, [0, 1, 3], False],
-		[3, [0, 1, 2, 3], False],
-		[2, [1, 3], False]
+		[0, 0, [1, 2, 3], False],
+		[5, 2, [0, 1, 3], False],
+		[15, 3, [0, 1, 2, 3], False],
+		[20, 2, [1, 3], False]
 	]
 
 	closing_times = {
@@ -252,10 +275,15 @@ if __name__ == '__main__':
 	sales = Salesman(V, V, services_locations, location_service_times, closing_times, graph)
 
 	ret = sales.handle_request(requests)
-
-	print(ret)
-
 	while sales.clock < 200:
-		sales.tick()
+		ret = sales.tick()
+
+		if ret:
+			print(sales.clock-1)
+
+			for r in ret:
+				for node in r:
+
+					print(f'Location: {node[1]}\tService: {node[0]}\tArrival info: will reach at {node[3]} after a travel of {node[2]} units\tWaiting time: {node[4]}\tService time: {node[5]}\tFinish time: {node[6]}')
 
 
